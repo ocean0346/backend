@@ -25,7 +25,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000','https://frontend-vv96.onrender.com',], // Nguồn gốc của frontend
+  origin: '*', // Nguồn gốc của frontend
   credentials: true, // Cho phép credentials (cookies, sessions)
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -33,7 +33,6 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-
 // Session middleware
 app.use(
   session({
