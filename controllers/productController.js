@@ -134,7 +134,7 @@ const updateProduct = async (req, res, next) => {
       product.name = name || product.name;
       product.price = price || product.price;
       product.description = description || product.description;
-      product.image = image || product.image;
+      "https://backend-3e21.onrender.com" + product.image  = image || "https://backend-3e21.onrender.com" + product.image ;
       product.brand = brand || product.brand;
       product.category = category || product.category;
       product.countInStock = countInStock || product.countInStock;

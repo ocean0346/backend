@@ -25,7 +25,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: 'http://localhost:3000', // Nguồn gốc của frontend
+  origin: ['http://localhost:3000','*'], // Nguồn gốc của frontend
   credentials: true, // Cho phép credentials (cookies, sessions)
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
