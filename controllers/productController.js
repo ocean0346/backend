@@ -5,41 +5,142 @@ const Product = require('../models/productModel');
 // @access  Public
 const getProducts = async (req, res, next) => {
   try {
+    console.log('Server: Yêu cầu tìm kiếm sản phẩm với query:', req.query);
+    
     const pageSize = 8; // Số sản phẩm trên mỗi trang
     const page = Number(req.query.page) || 1;
     
-    // Xử lý các tham số lọc
-    const keyword = req.query.keyword 
-      ? { name: { $regex: req.query.keyword, $options: 'i' } } 
-      : {};
-      
-    const category = req.query.category 
-      ? { category: req.query.category } 
-      : {};
-      
-    const minPrice = req.query.minPrice 
-      ? { price: { $gte: Number(req.query.minPrice) } } 
-      : {};
-      
-    const maxPrice = req.query.maxPrice 
-      ? { price: { $lte: Number(req.query.maxPrice) } } 
-      : {};
+    // Bắt đầu với một đối tượng query trống
+    let query = {};
     
-    const minRating = req.query.minRating
-      ? { rating: { $gte: Number(req.query.minRating) } }
-      : {};
+    // Thêm tìm kiếm theo từ khóa nếu có
+    if (req.query.keyword) {
+      try {
+        // Decode URL encoded keywords
+        const decodedKeyword = decodeURIComponent(req.query.keyword);
+        console.log('Server: Tìm kiếm với từ khóa gốc:', decodedKeyword);
+        
+        // Làm sạch từ khóa, loại bỏ các ký tự đặc biệt của regex và escape các ký tự đặc biệt khác
+        const sanitizedKeyword = decodedKeyword
+          .replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // escape các ký tự đặc biệt của regex
+          .trim();
+        
+        console.log('Server: Từ khóa sau khi làm sạch:', sanitizedKeyword);
+        
+        // Tìm kiếm trong cả tên và mô tả sản phẩm
+        // Sử dụng $or để tìm kiếm trong nhiều trường
+        query = {
+          $or: [
+            { name: { $regex: sanitizedKeyword, $options: 'i' } },
+            { description: { $regex: sanitizedKeyword, $options: 'i' } }
+          ]
+        };
+        
+        console.log('Server: Query tìm kiếm $or:', JSON.stringify(query));
+      } catch (error) {
+        console.error('Server: Lỗi khi xử lý từ khóa tìm kiếm:', error);
+        // Fallback đến tìm kiếm cơ bản nếu có lỗi
+        query.name = { $regex: req.query.keyword, $options: 'i' };
+      }
+    }
     
-    // Tạo query với tất cả điều kiện lọc
-    const query = {
-      ...keyword,
-      ...(req.query.category ? category : {}),
-      ...(req.query.minPrice ? { price: { $gte: Number(req.query.minPrice) } } : {}),
-      ...(req.query.maxPrice ? { price: { $lte: Number(req.query.maxPrice) } } : {}),
-      ...(req.query.minRating ? { rating: { $gte: Number(req.query.minRating) } } : {})
-    };
+    // Thêm tìm kiếm theo danh mục nếu có
+    if (req.query.category) {
+      console.log('Server: Lọc theo danh mục:', req.query.category);
+      // Nếu đã có từ khóa tìm kiếm, thêm điều kiện danh mục vào query
+      if (query.$or) {
+        // Thêm điều kiện AND với danh mục
+        query = {
+          $and: [
+            query, // giữ lại điều kiện $or cho từ khóa
+            { category: req.query.category }
+          ]
+        };
+      } else {
+        // Nếu chưa có từ khóa, chỉ cần thêm trực tiếp
+        query.category = req.query.category;
+      }
+    }
+    
+    // Xử lý lọc theo giá (kết hợp min và max price nếu cả hai đều có)
+    if (req.query.minPrice || req.query.maxPrice) {
+      // Nếu đã có điều kiện $and, thêm vào mảng
+      if (query.$and) {
+        const priceFilter = {};
+        
+        if (req.query.minPrice) {
+          priceFilter.$gte = Number(req.query.minPrice);
+          console.log('Server: Lọc giá tối thiểu:', req.query.minPrice);
+        }
+        
+        if (req.query.maxPrice) {
+          priceFilter.$lte = Number(req.query.maxPrice);
+          console.log('Server: Lọc giá tối đa:', req.query.maxPrice);
+        }
+        
+        query.$and.push({ price: priceFilter });
+      }
+      // Nếu đã có điều kiện $or nhưng chưa có $and
+      else if (query.$or) {
+        const priceFilter = {};
+        
+        if (req.query.minPrice) {
+          priceFilter.$gte = Number(req.query.minPrice);
+          console.log('Server: Lọc giá tối thiểu:', req.query.minPrice);
+        }
+        
+        if (req.query.maxPrice) {
+          priceFilter.$lte = Number(req.query.maxPrice);
+          console.log('Server: Lọc giá tối đa:', req.query.maxPrice);
+        }
+        
+        query = {
+          $and: [
+            query, // giữ lại điều kiện $or cho từ khóa
+            { price: priceFilter }
+          ]
+        };
+      }
+      // Nếu chưa có cả $or và $and
+      else {
+        query.price = {};
+        
+        if (req.query.minPrice) {
+          query.price.$gte = Number(req.query.minPrice);
+          console.log('Server: Lọc giá tối thiểu:', req.query.minPrice);
+        }
+        
+        if (req.query.maxPrice) {
+          query.price.$lte = Number(req.query.maxPrice);
+          console.log('Server: Lọc giá tối đa:', req.query.maxPrice);
+        }
+      }
+    }
+    
+    // Thêm lọc theo đánh giá nếu có
+    if (req.query.minRating) {
+      console.log('Server: Lọc theo đánh giá tối thiểu:', req.query.minRating);
+      
+      // Tương tự như với giá, xử lý theo cấu trúc query hiện tại
+      if (query.$and) {
+        query.$and.push({ rating: { $gte: Number(req.query.minRating) } });
+      } else if (query.$or) {
+        query = {
+          $and: [
+            query,
+            { rating: { $gte: Number(req.query.minRating) } }
+          ]
+        };
+      } else {
+        query.rating = { $gte: Number(req.query.minRating) };
+      }
+    }
+    
+    console.log('Server: Query MongoDB cuối cùng:', JSON.stringify(query));
     
     // Đếm tổng số sản phẩm phù hợp với điều kiện tìm kiếm
     const totalProducts = await Product.countDocuments(query);
+    console.log('Server: Tổng số sản phẩm phù hợp:', totalProducts);
     
     // Tính số trang
     const pages = Math.ceil(totalProducts / pageSize);
@@ -49,6 +150,9 @@ const getProducts = async (req, res, next) => {
       .limit(pageSize)
       .skip(pageSize * (page - 1));
     
+    console.log('Server: Trả về', products.length, 'sản phẩm cho trang', page, '/', pages);
+    console.log('Server: Tên các sản phẩm trả về:', products.map(p => p.name).join(', '));
+    
     // Trả về kết quả có thêm thông tin phân trang
     res.json({
       products,
@@ -57,6 +161,7 @@ const getProducts = async (req, res, next) => {
       totalProducts
     });
   } catch (error) {
+    console.error('Server: Lỗi khi tìm kiếm sản phẩm:', error);
     next(error);
   }
 };
@@ -134,7 +239,7 @@ const updateProduct = async (req, res, next) => {
       product.name = name || product.name;
       product.price = price || product.price;
       product.description = description || product.description;
-      "https://backend-3e21.onrender.com" + product.image  = image || "https://backend-3e21.onrender.com" + product.image ;
+      product.image = image || product.image;
       product.brand = brand || product.brand;
       product.category = category || product.category;
       product.countInStock = countInStock || product.countInStock;

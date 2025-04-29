@@ -25,7 +25,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: '*', // Nguồn gốc của frontend
+  origin: ['https://backend-3e21.onrender.com', 'http://localhost:3000'], // Nguồn gốc của frontend
   credentials: true, // Cho phép credentials (cookies, sessions)
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
