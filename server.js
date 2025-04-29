@@ -22,6 +22,7 @@ connectDB();
 
 // Initialize express app
 const allowedOrigins = ['https://frontend-vv96.onrender.com', 'http://localhost:3000'];
+const app = express(); // <-- THÊM DÒNG NÀY
 app.use(cors());
 app.use(cors({
   origin: allowedOrigins,
